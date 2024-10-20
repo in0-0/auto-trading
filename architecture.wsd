@@ -1,0 +1,54 @@
+@startuml
+
+package "Data Collector" {
+    class DataCollector {
+        + fetch_news(): DataFrame
+        + fetch_market_data(symbol: String): DataFrame
+    }
+}
+
+package "Strategy" {
+    class Strategy {
+        + sentiment_analysis(news: DataFrame): float
+        + technical_analysis(market_data: DataFrame): DataFrame
+        + generate_signal(sentiment: float, rsi: float, macd: float): String
+    }
+}
+
+package "Trading Engine" {
+    class TradingEngine {
+        + execute_order(symbol: String, side: String, quantity: float): Response
+        + monitor_positions(): Positions
+    }
+}
+
+package "Backtest" {
+    class Backtest {
+        + run_backtest(): List
+        + evaluate_performance(signals: List): void
+    }
+}
+
+package "Logger" {
+    class Logger {
+        + log_trade(symbol: String, action: String, price: float, quantity: float): void
+        + log_error(error: String): void
+    }
+}
+
+package "Main Execution" {
+    class Main {
+        + __main__(): void
+    }
+}
+
+DataCollector --> Strategy : Collects data for
+Strategy --> TradingEngine : Sends signal to
+TradingEngine --> Logger : Logs trades and errors
+Backtest --> Strategy : Uses strategy for testing
+Main --> DataCollector : Fetches data from
+Main --> Strategy : Runs strategy analysis
+Main --> TradingEngine : Executes trades
+Main --> Logger : Logs actions
+
+@enduml
