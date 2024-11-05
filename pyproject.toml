@@ -7,5 +7,7 @@ requires-python = ">=3.11"
 dependencies = [
     "python-dotenv",
     "pyupbit",
-    "openai"
+    "openai",
+    "ta",
+    "pandas",
 ]
