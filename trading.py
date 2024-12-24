@@ -14,6 +14,7 @@ import openai
 import pandas as pd
 import pyupbit
 import requests
+import schedule
 import ta
 from dotenv import load_dotenv
 from openai import OpenAI
@@ -90,7 +91,6 @@ def log_trade(
 def get_recent_trades(conn: Connection, days=7):
     c = conn.cursor()
     days_ago = (datetime.now() - timedelta(days=days)).isoformat()
-    print(days_ago)
 
     c.execute(
         "SELECT * FROM trades WHERE timestamp > ? ORDER BY timestamp DESC", (days_ago,)
@@ -196,15 +196,10 @@ def calculate_performance(trades_df: pd.DataFrame):
         "btc_balance"
     ] * pyupbit.get_current_price("KRW-BTC")
 
-    print(initial_balance, final_balance)
-    print(trades_df.iloc[0]["krw_balance"], trades_df.iloc[0]["btc_balance"])
-    print(trades_df.iloc[-1]["krw_balance"], trades_df.iloc[-1]["btc_balance"])
-
     return (final_balance - initial_balance) / initial_balance * 100
 
 
 def excute_trade(decision, percentage):
-    print("siy", decision)
     if decision == "BUY":
         my_krw = upbit.get_balance("KRW")
         if my_krw is None:
@@ -269,9 +264,12 @@ def get_reflection_from_db(conn: Connection):
 
 def get_reflection(trades_df, current_market_data):
     response = openai.chat.completions.create(
-        model="gpt-4o",
+        model="o1-preview",
         messages=[
-            {"role": "user", "content": "You are an AI trading"},
+            {
+                "role": "user",
+                "content": "You are an expert in AI trading. Analyze the given records to assist in making the next decision for higher profitability.",
+            },
             {
                 "role": "user",
                 "content": f"""
@@ -350,60 +348,47 @@ def ai_trading():
                 "hourly_ohlcv": df_hourly.to_dict(),
             }
 
-            # reflection = get_reflection(recent_trades, current_market_date)
-            reflection = ""
+            reflection = get_reflection(recent_trades, current_market_date)
 
-            print(prompt.get_system_prompt("reflection"))
-            print(
-                prompt.get_user_prompt(
-                    df_daily,
-                    df_hourly,
-                    filtered_balances,
-                    orderbook,
-                    news_headlines,
-                    fear_greed_index,
-                )
+            response = client.chat.completions.create(
+                model="o1-preview",
+                messages=[
+                    {
+                        "role": "user",
+                        "content": (prompt.get_system_prompt(reflection)),
+                    },
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": prompt.get_user_prompt(
+                                    df_daily,
+                                    df_hourly,
+                                    filtered_balances,
+                                    orderbook,
+                                    news_headlines,
+                                    fear_greed_index,
+                                ),
+                            }
+                        ],
+                    },
+                ],
             )
 
-            # response = client.chat.completions.create(
-            #     model="gpt-4o",
-            #     messages=[
-            #         {
-            #             "role": "user",
-            #             "content": (prompt.get_system_prompt(reflection)),
-            #         },
-            #         {
-            #             "role": "user",
-            #             "content": [
-            #                 {
-            #                     "type": "text",
-            #                     "text": prompt.get_user_prompt(
-            #                         df_daily,
-            #                         df_hourly,
-            #                         filtered_balances,
-            #                         orderbook,
-            #                         news_headlines,
-            #                         fear_greed_index,
-            #                     ),
-            #                 }
-            #             ],
-            #         },
-            #     ],
-            # )
+            response_text = response.choices[0].message.content
 
-            # response_text = response.choices[0].message.content
+            parsed_response = parser_ai_response(response_text)
 
-            # parsed_response = parser_ai_response(response_text)
-
-            parsed_response = {"decision": "HOLD", "percentage": 0, "reason": "test"}
+            # parsed_response = {"decision": "HOLD", "percentage": 0, "reason": "test"}
 
             decision = parsed_response.get("decision")
             percentage = parsed_response.get("percentage")
             reason = parsed_response.get("reason")
 
-            logger.info(f"AI Decision: {decision.upper()}")
-            logger.info(f"percentage: {percentage}")
-            logger.info(f"Decision reason: {reason}")
+            logger.info("AI Decision: %s", decision.upper())
+            logger.info("percentage: %s", percentage)
+            logger.info("Decision reason: %s", reason)
 
             order_excuted = False
 
@@ -411,7 +396,6 @@ def ai_trading():
 
             time.sleep(2)
             balances = upbit.get_balances()
-            print(type(balances), balances)
             btc_balance = next(
                 (
                     float(balance["balance"])
@@ -437,10 +421,7 @@ def ai_trading():
                 0,
             )
 
-            print(btc_balance)
-
             current_btc_price = pyupbit.get_current_price("KRW-BTC")
-            print(current_btc_price)
 
             log_trade(
                 conn,
@@ -479,13 +460,11 @@ if __name__ == "__main__":
         finally:
             trading_in_progress = False
 
-    job()
+    schedule.every().day.at("03:00").do(job)
+    schedule.every().day.at("09:00").do(job)
+    schedule.every().day.at("15:00").do(job)
+    schedule.every().day.at("21:00").do(job)
 
-    # schedule.every().day.at("03:00").do(job)
-    # schedule.every().day.at("09:00").do(job)
-    # schedule.every().day.at("15:00").do(job)
-    # schedule.every().day.at("21:00").do(job)
-
-    # while True:
-    #     schedule.run_pending()
-    #     time.sleep(1)
+    while True:
+        schedule.run_pending()
+        time.sleep(1)

@@ -9,7 +9,7 @@ import pandas as pd
 import pytest
 
 # init_db 함수를 테스트하기 위해 실제 함수가 포함된 모듈을 import
-from mvp import (
+from trading import (
     add_indicators,
     calculate_performance,
     get_recent_trades,

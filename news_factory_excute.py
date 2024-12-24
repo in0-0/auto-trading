@@ -57,7 +57,6 @@ def fetch_and_save_news():
 
     read_df.to_csv("articles.csv", index=False)
     save_timestamp()
-    print(read_df)
     return news_summary
 
 

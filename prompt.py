@@ -3,7 +3,7 @@ from datetime import datetime
 
 import pandas as pd
 
-a: datetime
+a: datetime = datetime.now()
 
 b: pd.DataFrame
 

@@ -1,8 +1,11 @@
+import logging
 import os
 from typing import Dict, List
 
 from newsapi import NewsApiClient
 from serpapi import GoogleSearch
+
+logger = logging.getLogger(__name__)
 
 
 class NewsAPIClient:
@@ -36,7 +39,7 @@ class NewsAPIClient:
             ]
         except Exception as e:
             self.quota_exceeded = True
-            print(f"NewsAPI error: {e}")
+            logger.error("NewsAPI error: %s", e)
             return
 
 
@@ -49,7 +52,6 @@ class SerpAPIClient:
 
     def request_top_headlines(self, params: Dict) -> List[Dict]:
         """Fetch top headlines from SerpAPI and standardize response."""
-        print(self.api_key)
         search_params = {
             "engine": "google",
             "q": params.get("q"),
@@ -73,7 +75,7 @@ class SerpAPIClient:
             ]
         except Exception as e:
             self.quota_exceeded = True
-            print(f"SerpAPI error: {e}")
+            logging.error("SerpAPI error: %s", e)
             return
 
 
@@ -106,7 +108,7 @@ class NewsApiFactory:
                 if response:
                     return response
             except Exception as e:
-                print(f"Error with {current_client.__class__.__name__}: {e}")
+                logging.error("Error with %s: %s", current_client.__class__.__name__, e)
             # Switch to the next client if the current one fails
             self._switch_to_next_available_client()
 
